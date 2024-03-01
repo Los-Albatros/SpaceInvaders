@@ -56,6 +56,7 @@ class Missile(Sprite):
 
         if pygame.sprite.spritecollide(self, alien_group, True):
             self.kill()
+            invader_killed.play()
 
 
 spaceship_group = Group()
@@ -64,6 +65,12 @@ missile_group = Group()
 alien_missile_group = Group()
 star_group = Group()
 
+invader_killed = pygame.mixer.Sound("../resources/sounds/invader_killed.wav")
+invader_killed.set_volume(0.1)
+invader_shoot = pygame.mixer.Sound("../resources/sounds/invader_shoot.wav")
+invader_shoot.set_volume(0.1)
+shoot = pygame.mixer.Sound("../resources/sounds/shoot.wav")
+shoot.set_volume(0.1)
 
 # noinspection PyTypeChecker
 class Spaceship(pygame.sprite.Sprite):
@@ -71,7 +78,7 @@ class Spaceship(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
 
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.transform.scale(pygame.image.load('../resources/images/spaceship.png'), (32, 18))
+        self.image = pygame.transform.scale(pygame.image.load('../resources/images/spaceship.png'), (48, 27))
         self.rect = self.image.get_rect()
         self.rect.center = [pos_x, pos_y]
 
@@ -105,6 +112,7 @@ class Spaceship(pygame.sprite.Sprite):
             if current_time - self.last_missile > missile_cooldown:
                 missile = Missile(self.rect.centerx, self.rect.y)
                 missile_group.add(missile)
+                shoot.play()
 
                 self.last_missile = current_time
 
@@ -114,7 +122,7 @@ class Alien(pygame.sprite.Sprite):
 
     def __init__(self, pos_x, pos_y, image_filename):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.transform.scale(pygame.image.load(image_filename), (28, 18))
+        self.image = pygame.transform.scale(pygame.image.load(image_filename), (42, 27))
         self.rect = self.image.get_rect()
         self.rect.center = [pos_x, pos_y]
 
@@ -130,6 +138,7 @@ class Alien(pygame.sprite.Sprite):
         if fire_chance < alien_fire_probability and len(alien_missile_group.sprites()) < max_alien_missiles:
             alien_missile = AlienMissile(self.rect.centerx, self.rect.y)
             alien_missile_group.add(alien_missile)
+            invader_shoot.play()
 
 
 class AlienMissile(Missile):
@@ -151,6 +160,7 @@ class AlienMissile(Missile):
         if pygame.sprite.spritecollide(self, spaceship_group, False):
             self.kill()
             spaceship.lives_left -= 1
+            invader_killed.play()
 
 
 class Star(pygame.sprite.Sprite):
@@ -186,11 +196,11 @@ def create_aliens(group):
 
     # number of rows and columns of aliens
     rows_aliens = 4
-    cols_aliens = 12
+    cols_aliens = 10
 
     for row in range(rows_aliens):
         for col in range(cols_aliens // 2 * -1, cols_aliens - cols_aliens // 2):
-            group.add(Alien(game_width / 2 - 50 * col, padding + row * 40, image_filenames[row]))
+            group.add(Alien(game_width / 2 - 60 * col - 20, padding + row * 40, image_filenames[row]))
 
 
 create_aliens(alien_group)
