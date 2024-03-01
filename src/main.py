@@ -71,7 +71,7 @@ class Spaceship(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
 
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('../resources/spaceship.png')
+        self.image = pygame.transform.scale(pygame.image.load('../resources/images/spaceship.png'), (32, 18))
         self.rect = self.image.get_rect()
         self.rect.center = [pos_x, pos_y]
 
@@ -114,7 +114,7 @@ class Alien(pygame.sprite.Sprite):
 
     def __init__(self, pos_x, pos_y, image_filename):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load(image_filename)
+        self.image = pygame.transform.scale(pygame.image.load(image_filename), (28, 18))
         self.rect = self.image.get_rect()
         self.rect.center = [pos_x, pos_y]
 
@@ -176,10 +176,10 @@ spaceship_group.add(spaceship)
 def create_aliens(group):
     # alien images
     image_filenames = [
-        '../resources/alien_red.png',
-        '../resources/alien_purple.png',
-        '../resources/alien_orange.png',
-        '../resources/alien_green.png'
+        '../resources/images/alien_red.png',
+        '../resources/images/alien_purple.png',
+        '../resources/images/alien_orange.png',
+        '../resources/images/alien_green.png'
     ]
 
     group.empty()
