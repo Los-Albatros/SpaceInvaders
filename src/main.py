@@ -1,7 +1,9 @@
+import sys
 import pygame
 from pygame.locals import *
 import random
 from pygame.sprite import Group, Sprite
+from options import load_pref, save_pref
 
 pygame.init()
 
@@ -13,10 +15,14 @@ game_screen = pygame.display.set_mode(size)
 pygame.display.set_caption('Space Invaders')
 
 black = (0, 0, 0)
+blue = (0, 0, 255)
 green = (0, 255, 0)
 red = (255, 0, 0)
 white = (255, 255, 255)
 yellow = (255, 255, 0)
+
+font_large = pygame.font.Font(None, 70)
+font_small = pygame.font.Font(None, 36)
 
 alien_direction_x = 1
 alien_direction_y = 0
@@ -32,7 +38,7 @@ clock = pygame.time.Clock()
 
 
 def write_text(text, color, pos_x, pos_y):
-    text = font.render(text, True, color)
+    text = font_large.render(text, True, color)
     text_rect = text.get_rect()
     text_rect.center = (pos_x, pos_y)
     game_screen.blit(text, text_rect)
@@ -72,6 +78,7 @@ invader_shoot.set_volume(0.1)
 shoot = pygame.mixer.Sound("../resources/sounds/shoot.wav")
 shoot.set_volume(0.1)
 
+
 # noinspection PyTypeChecker
 class Spaceship(pygame.sprite.Sprite):
 
@@ -89,7 +96,6 @@ class Spaceship(pygame.sprite.Sprite):
 
     def update(self):
 
-        # draw health bar
         for life in range(self.lives):
 
             health_x = int(game_width / self.lives * life)
@@ -101,7 +107,6 @@ class Spaceship(pygame.sprite.Sprite):
                 pygame.draw.rect(game_screen, red, (health_x, health_y, int(game_width / self.lives), padding))
 
         keys = pygame.key.get_pressed()
-
         if keys[K_LEFT] and self.rect.left > padding / 2:
             self.rect.x -= player_speed
         elif keys[K_RIGHT] and self.rect.right < game_width - padding / 2:
@@ -203,129 +208,274 @@ def create_aliens(group):
             group.add(Alien(game_width / 2 - 60 * col - 20, padding + row * 40, image_filenames[row]))
 
 
-create_aliens(alien_group)
+def game():
+    global alien_direction_x
+    global alien_direction_y
+    global count_direction_x_changes
+    alien_direction_x = 1
+    alien_direction_y = 0
+    count_direction_x_changes = 0
 
-# define the boundaries of the leftmost and rightmost aliens
-aliens_left_bound = alien_group.sprites()[-1].rect.left
-aliens_right_bound = alien_group.sprites()[0].rect.right
+    volume = 50
 
-# game variables
-game_status = 'new game'
-ready_countdown = 0
+    params = load_pref()
+    if params:
+        volume = params['volume']
 
-font = pygame.font.Font(pygame.font.get_default_font(), 16)
+    shoot.set_volume(0.01*volume)
+    invader_shoot.set_volume(0.01 * volume)
+    invader_killed.set_volume(0.01 * volume)
 
-# game loop
-running = True
-while running:
+    create_aliens(alien_group)
 
-    clock.tick(fps)
+    aliens_left_bound = alien_group.sprites()[-1].rect.left
+    aliens_right_bound = alien_group.sprites()[0].rect.right
 
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            running = False
+    game_status = 'new game'
+    ready_countdown = 0
 
-    # draw the background
-    game_screen.fill(black)
-    star_group.update()
+    running = True
+    while running:
 
-    # draw the spaceship
-    spaceship_group.draw(game_screen)
+        clock.tick(fps)
 
-    # draw the aliens
-    alien_group.draw(game_screen)
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                running = False
 
-    # check if aliens need to change direction
-    aliens_left_bound += alien_direction_x
-    aliens_right_bound += alien_direction_x
-    if aliens_left_bound <= padding or aliens_right_bound >= game_width - padding:
-        alien_direction_x *= -1
-        count_direction_x_changes += 1
+        game_screen.fill(black)
+        star_group.update()
 
-    # after three x direction changes, move the aliens down
-    if count_direction_x_changes < 3:
-        alien_direction_y = 0
-    else:
-        alien_direction_y = 50
-        count_direction_x_changes = 0
+        spaceship_group.draw(game_screen)
+        alien_group.draw(game_screen)
 
-    # check if the left/right bounds need to be updated
-    if len(alien_group.sprites()) > 0:
-        aliens_left_bound = alien_group.sprites()[0].rect.left
-        aliens_right_bound = alien_group.sprites()[-1].rect.right
-    for alien in alien_group.sprites():
-        if alien.rect.left < aliens_left_bound:
-            aliens_left_bound = alien.rect.left
-        if alien.rect.right > aliens_right_bound:
-            aliens_right_bound = alien.rect.right
+        aliens_left_bound += alien_direction_x
+        aliens_right_bound += alien_direction_x
+        if aliens_left_bound <= padding or aliens_right_bound >= game_width - padding:
+            alien_direction_x *= -1
+            count_direction_x_changes += 1
 
-    if game_status == 'new game':
-        # display start screen
-        write_text('Space Invaders', white, game_width / 2, game_height / 2)
-        write_text('Press SPACE to Start', white, game_width / 2, game_height / 2 + 50)
-        key = pygame.key.get_pressed()
-        if key[K_SPACE]:
+        if count_direction_x_changes < 3:
+            alien_direction_y = 0
+        else:
+            alien_direction_y = 50
+            count_direction_x_changes = 0
+
+        if len(alien_group.sprites()) > 0:
+            aliens_left_bound = alien_group.sprites()[0].rect.left
+            aliens_right_bound = alien_group.sprites()[-1].rect.right
+        for alien in alien_group.sprites():
+            if alien.rect.left < aliens_left_bound:
+                aliens_left_bound = alien.rect.left
+            if alien.rect.right > aliens_right_bound:
+                aliens_right_bound = alien.rect.right
+
+        if game_status == 'new game':
             game_status = 'playing'
             ready_countdown = 3
 
-    elif game_status == 'playing':
-        if ready_countdown >= 0:
+        elif game_status == 'playing':
+            if ready_countdown >= 0:
 
-            write_text(str(ready_countdown), white, game_width / 2, game_height / 2)
+                write_text(str(ready_countdown), white, game_width / 2, game_height / 2)
 
-            countdown_timer = pygame.time.get_ticks()
-            pygame.time.delay(1000)
-            ready_countdown -= 1
-            pygame.display.update()
+                pygame.time.delay(1000)
+                ready_countdown -= 1
+                pygame.display.update()
 
-        else:
-            spaceship_group.update()
-            alien_group.update()
-            missile_group.update()
-            alien_missile_group.update()
+            else:
+                spaceship_group.update()
+                alien_group.update()
+                missile_group.update()
+                alien_missile_group.update()
 
-        if len(alien_group.sprites()) == 0:
-            game_status = 'cleared'
-        elif spaceship.lives_left == 0:
-            game_status = 'game over'
-        for alien in alien_group.sprites():
-            if alien.rect.bottom > spaceship.rect.top:
+            if len(alien_group.sprites()) == 0:
+                game_status = 'cleared'
+            elif spaceship.lives_left == 0:
                 game_status = 'game over'
+            for alien in alien_group.sprites():
+                if alien.rect.bottom > spaceship.rect.top:
+                    game_status = 'game over'
+            key = pygame.key.get_pressed()
+            if key[K_ESCAPE]:
+                missile_group.empty()
+                alien_missile_group.empty()
+                main_menu()
 
-    elif game_status == 'cleared':
-        write_text('Game Cleared', white, game_width / 2, game_height / 2)
-        write_text('Press SPACE to play again', white, game_width / 2, game_height / 2 + 50)
+        elif game_status == 'cleared':
+            write_text('Game Cleared', white, game_width / 2, game_height / 2)
+            write_text('Press SPACE to play again', white, game_width / 2, game_height / 2 + 50)
 
-        key = pygame.key.get_pressed()
-        if key[K_SPACE]:
-            game_status = 'restart'
+            key = pygame.key.get_pressed()
+            if key[K_SPACE]:
+                game_status = 'restart'
 
-    elif game_status == 'game over':
-        write_text('Game Over', white, game_width / 2, game_height / 2)
-        write_text('Press SPACE to play again', white, game_width / 2, game_height / 2 + 50)
+        elif game_status == 'game over':
+            write_text('Game Over', white, game_width / 2, game_height / 2)
+            write_text('Press SPACE to play again', white, game_width / 2, game_height / 2 + 50)
 
-        key = pygame.key.get_pressed()
-        if key[K_SPACE]:
-            game_status = 'restart'
+            key = pygame.key.get_pressed()
+            if key[K_SPACE]:
+                game_status = 'restart'
 
-    elif game_status == 'restart':
-        create_aliens(alien_group)
-        alien_direction_x = 1
-        alien_direction_y = 0
-        count_direction_x_changes = 0
-        aliens_left_bound = alien_group.sprites()[0].rect.left
-        aliens_right_bound = alien_group.sprites()[-1].rect.right
+        elif game_status == 'restart':
+            create_aliens(alien_group)
+            alien_direction_x = 1
+            alien_direction_y = 0
+            count_direction_x_changes = 0
+            aliens_left_bound = alien_group.sprites()[0].rect.left
+            aliens_right_bound = alien_group.sprites()[-1].rect.right
 
-        spaceship.rect.centerx = int(game_width / 2)
-        spaceship.lives_left = spaceship.lives
+            spaceship.rect.centerx = int(game_width / 2)
+            spaceship.lives_left = spaceship.lives
 
-        missile_group.empty()
-        alien_missile_group.empty()
+            missile_group.empty()
+            alien_missile_group.empty()
 
-        ready_countdown = 3
+            ready_countdown = 3
 
-        game_status = 'playing'
+            game_status = 'playing'
 
-    pygame.display.update()
+        pygame.display.update()
 
-pygame.quit()
+
+def quit_game():
+    pygame.quit()
+    sys.exit()
+
+
+def options():
+    volume = 50
+
+    params = load_pref()
+    if params:
+        volume = params['volume']
+
+    while True:
+        game_screen.fill(black)
+        star_group.update()
+        text_options = font_large.render("Options", True, (255, 255, 255))
+        game_screen.blit(text_options, text_options.get_rect(center=(game_screen.get_width() // 4, 50)))
+
+        button_width = 200
+        button_height = 50
+        button_left = game_screen.get_width() // 2 - button_width // 2
+        button_top = 200
+        save_button = pygame.Rect(game_screen.get_width() // 2 - button_width - 25, button_top + 200, button_width,
+                                  button_height)
+        save_color = (0, 155, 0)
+        cancel_button = pygame.Rect(game_screen.get_width() // 2 + 25, button_top + 200, button_width, button_height)
+        cancel_color = (155, 0, 0)
+
+        pygame.draw.rect(game_screen, white, (button_left, button_top + 115, button_width, 10))
+        volume_rect = pygame.Rect(button_left + volume, 305, 10, 30)
+        volume_color = (0, 155, 0)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    quit_game()
+                    game()
+                if event.key == pygame.K_m:
+                    main_menu()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = pygame.mouse.get_pos()
+                if save_button.collidepoint(mx, my):
+                    params['volume'] = volume
+                    save_pref(params)
+                    main_menu()
+                elif cancel_button.collidepoint(mx, my):
+                    main_menu()
+                if pygame.mouse.get_pressed()[0] and button_left <= mx <= button_left+button_width and 280 <= my <= 350:
+                    volume = pygame.mouse.get_pos()[0] - button_left
+        mx, my = pygame.mouse.get_pos()
+        if save_button.collidepoint(mx, my):
+            save_color = green
+        elif pygame.Rect(button_left, button_top + 110, button_width, 30).collidepoint(mx, my):
+            volume_color = green
+        elif cancel_button.collidepoint(mx, my):
+            cancel_color = red
+        volume_text = font_small.render("Volume : ", True, white)
+        game_screen.blit(volume_text, volume_text.get_rect(
+            center=(button_left + button_width // 2 - 50, 260 + button_height // 2)))
+        volume_text2 = font_small.render(str(volume // 2) + " %", True, volume_color)
+        game_screen.blit(volume_text2, volume_text2.get_rect(
+            center=(button_left + button_width - 30, 260 + button_height // 2)))
+        pygame.draw.rect(game_screen, save_color, save_button)
+        pygame.draw.rect(game_screen, volume_color, volume_rect)
+        save_text = font_small.render("Save", True, white)
+        game_screen.blit(save_text, save_text.get_rect(
+            center=(game_screen.get_width() // 2 - button_width - 25 + button_width // 2, 400 + button_height // 2)))
+        pygame.draw.rect(game_screen, cancel_color, cancel_button)
+        cancel_text = font_small.render("Cancel", True, white)
+        game_screen.blit(cancel_text,
+                         cancel_text.get_rect(
+                             center=(game_screen.get_width() // 2 + 25 + button_width // 2, 400 + button_height // 2)))
+        pygame.display.update()
+
+
+def main_menu():
+    button_width = 200
+    button_height = 50
+    button_left = game_screen.get_width() // 2 - button_width // 2
+    button_top = 200
+    button_play = pygame.Rect(button_left, button_top, button_width, button_height)
+    button_options = pygame.Rect(button_left, button_top + 100, button_width, button_height)
+    button_exit = pygame.Rect(button_left, button_top + 200, button_width, button_height)
+
+    while True:
+        game_screen.fill(black)
+        star_group.update()
+        text_play = font_small.render("Play", True, white)
+        text_options = font_small.render("Options", True, white)
+        text_exit = font_small.render("Exit", True, white)
+        mx, my = pygame.mouse.get_pos()
+        play_color = (0, 0, 155)
+        options_color = (0, 155, 0)
+        exit_color = (155, 0, 0)
+        if button_play.collidepoint(mx, my):
+            play_color = blue
+        elif button_options.collidepoint(mx, my):
+            options_color = green
+        elif button_exit.collidepoint(mx, my):
+            exit_color = red
+
+        buttons = [(button_play, play_color), (button_options, options_color), (button_exit, exit_color)]
+
+        for button in buttons:
+            pygame.draw.rect(game_screen, button[1], button[0])
+
+        game_screen.blit(text_play,
+                         text_play.get_rect(center=(button_left + button_width // 2, button_top + button_height // 2)))
+        game_screen.blit(text_options,
+                         text_options.get_rect(
+                             center=(button_left + button_width // 2, button_top + 100 + button_height // 2)))
+        game_screen.blit(text_exit,
+                         text_exit.get_rect(
+                             center=(button_left + button_width // 2, button_top + 200 + button_height // 2)))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if button_play.collidepoint(mx, my):
+                    game()
+                if button_options.collidepoint(mx, my):
+                    options()
+                if button_exit.collidepoint(mx, my):
+                    quit_game()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    quit_game()
+                if event.key == pygame.K_g:
+                    game()
+                if event.key == pygame.K_o:
+                    options()
+        pygame.display.update()
+        clock.tick(60)
+
+
+if __name__ == "__main__":
+    main_menu()
